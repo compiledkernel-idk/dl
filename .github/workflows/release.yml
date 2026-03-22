@@ -1,0 +1,106 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release, for example v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    env:
+      TAG_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      RELEASE_REPO: ${{ github.repository }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+
+      - name: Build dl.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            throw "vswhere.exe not found"
+          }
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) {
+            throw "Visual C++ build tools not found"
+          }
+          $vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvars64.bat"
+          if (-not (Test-Path $vcvars)) {
+            throw "vcvars64.bat not found"
+          }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $displayVersion = "dl $env:TAG_NAME"
+          $manifestUrl = "https://github.com/$env:RELEASE_REPO/releases/latest/download/dl-update.txt"
+          $build = @(
+            "call `"$vcvars`"",
+            "cl.exe /nologo /std:c17 /W4 /wd4201 /wd4204 /wd4100 /wd4214 /O2 /Oi /GL /GS- /fp:fast /arch:AVX2 /DNDEBUG /DUNICODE /D_UNICODE /DDL_VERSION_A=\`"$displayVersion\`" /DDL_VERSION_W=L\`"$displayVersion\`" /DDL_UPDATE_MANIFEST_URL_A=\`"$manifestUrl\`" /DDL_UPDATE_MANIFEST_URL_W=L\`"$manifestUrl\`" /Fe:dist\\dl.exe dl.c /link /LTCG /OPT:REF /OPT:ICF /SUBSYSTEM:CONSOLE ws2_32.lib secur32.lib crypt32.lib kernel32.lib ntdll.lib advapi32.lib user32.lib"
+          ) -join " && "
+          cmd.exe /d /s /c $build
+          if ($LASTEXITCODE -ne 0) {
+            throw "cl.exe build failed"
+          }
+
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) {
+            throw "makensis.exe not found"
+          }
+          & $makensis /V2 /DVERSION=$env:TAG_NAME /DBIN_PATH=dist\dl.exe /DOUTFILE_NAME=dist\dl-setup.exe installer.nsi
+          if ($LASTEXITCODE -ne 0) {
+            throw "NSIS build failed"
+          }
+
+      - name: Generate release manifest and checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $sha = (Get-FileHash dist\dl.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          @"
+          version=$env:TAG_NAME
+          url=https://github.com/$env:RELEASE_REPO/releases/download/$env:TAG_NAME/dl.exe
+          sha256=$sha
+          "@ | Set-Content -Path dist\dl-update.txt -NoNewline
+          "SHA256  dl.exe  $sha" | Set-Content -Path dist\dl.exe.sha256 -NoNewline
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:TAG_NAME
+          if (-not $tag) {
+            throw "TAG_NAME is empty"
+          }
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag dist\dl.exe dist\dl-setup.exe dist\dl-update.txt dist\dl.exe.sha256 --clobber
+          } else {
+            gh release create $tag dist\dl.exe dist\dl-setup.exe dist\dl-update.txt dist\dl.exe.sha256 --verify-tag --generate-notes --latest
+          }

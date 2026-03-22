@@ -1,0 +1,15 @@
+*.exe
+*.obj
+*.ilk
+*.pdb
+*.exp
+*.lib
+*.log
+*.err
+*.tmp
+*.dl.state
+*.dl.state.tmp
+*.bin
+*.html
+/dist/
+/testdata/
