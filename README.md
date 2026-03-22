@@ -2,39 +2,45 @@
 
 this thing downloads files on windows. but fast
 
-pure c. no curl. no winhttp. no giant dependency tumor. just winsock, schannel, threads, file writes, and raw spite.
+pure c. no deps
 
 it opens a pile of ranged connections, shoves bytes straight into the target file, resumes if you kill it, and keeps going until the file is done or the server starts acting like a dumbass.
 
+## install
+
+download `dl-setup.exe` from the latest release and run it.
+
+that is the normal install path. do that unless you are deliberately trying to make your own life worse.
+
+after install, open a new shell and use `dl`.
+
 ## one benchmark
 
-real run. not a fake lab bench. not some masturbatory synthetic bullshit.
+benchmark
 
 ```text
 .\dl.exe https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES/15.0/FreeBSD-15.0-RELEASE-amd64-disc1.iso
 [FreeBSD-15.0-RELEASE-amd64-disc1.iso]  14.6% | 189.5 MB / 1.3 GB | 60.2 MB/s | ETA 18s | [32 segments]
 ```
 
-on a good mirror this thing can absolutely clown a regular browser download and beat the shit out of aria2c too. 
-
+on a good mirror this thing can absolutely clown a regular browser download and beat the shit out of aria2c too.
 
 if the speed is bad:
 
 - maybe the downloader sucks
 - maybe the mirror sucks
 - maybe your route sucks
-- maybe you suck
 - usually it is the mirror
 
 ## build
 
-open a visual studio x64 developer shell and run this:
+if you want to build it yourself for some reason, open a visual studio x64 developer shell and run this:
 
 ```bat
 cl.exe /O2 /Oi /GL /GS- /fp:fast /arch:AVX2 /DNDEBUG /DUNICODE /D_UNICODE ^
     /Fe:dl.exe dl.c ^
     /link /LTCG /OPT:REF /OPT:ICF /SUBSYSTEM:CONSOLE ^
-    ws2_32.lib secur32.lib crypt32.lib kernel32.lib ntdll.lib advapi32.lib
+    ws2_32.lib secur32.lib crypt32.lib kernel32.lib ntdll.lib advapi32.lib user32.lib
 ```
 
 if you use `clang-cl`, point it at the same msvc + windows sdk setup and it should stop whining.
@@ -92,7 +98,7 @@ dl https://example.com/file.iso --limit-rate 200M
 
 ## notes
 
-- this is windows-only. 
+- this is windows-only.
 - if the server ignores `range`, `dl` drops to one connection and deals with it.
 - if you want to slam a fat pipe, try `-j 64`.
 - if `64` connections still does not move the needle, stop yelling at the downloader and pick a less cursed mirror.
