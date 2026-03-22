@@ -52,11 +52,11 @@ jobs:
             throw "vcvars64.bat not found"
           }
           New-Item -ItemType Directory -Force dist | Out-Null
-          $displayVersion = "dl $env:TAG_NAME"
+          $versionText = $env:TAG_NAME
           $manifestUrl = "https://github.com/$env:RELEASE_REPO/releases/latest/download/dl-update.txt"
           $build = @(
             "call `"$vcvars`"",
-            "cl.exe /nologo /std:c17 /W4 /wd4201 /wd4204 /wd4100 /wd4214 /O2 /Oi /GL /GS- /fp:fast /arch:AVX2 /DNDEBUG /DUNICODE /D_UNICODE /DDL_VERSION_A=\`"$displayVersion\`" /DDL_VERSION_W=L\`"$displayVersion\`" /DDL_UPDATE_MANIFEST_URL_A=\`"$manifestUrl\`" /DDL_UPDATE_MANIFEST_URL_W=L\`"$manifestUrl\`" /Fe:dist\\dl.exe dl.c /link /LTCG /OPT:REF /OPT:ICF /SUBSYSTEM:CONSOLE ws2_32.lib secur32.lib crypt32.lib kernel32.lib ntdll.lib advapi32.lib user32.lib"
+            "cl.exe /nologo /std:c17 /W4 /wd4201 /wd4204 /wd4100 /wd4214 /O2 /Oi /GL /GS- /fp:fast /arch:AVX2 /DNDEBUG /DUNICODE /D_UNICODE /DDL_VERSION_TEXT_A=\`"$versionText\`" /DDL_VERSION_TEXT_W=L\`"$versionText\`" /DDL_UPDATE_MANIFEST_URL_A=\`"$manifestUrl\`" /DDL_UPDATE_MANIFEST_URL_W=L\`"$manifestUrl\`" /Fe:dist\\dl.exe dl.c /link /LTCG /OPT:REF /OPT:ICF /SUBSYSTEM:CONSOLE ws2_32.lib secur32.lib crypt32.lib kernel32.lib ntdll.lib advapi32.lib user32.lib"
           ) -join " && "
           cmd.exe /d /s /c $build
           if ($LASTEXITCODE -ne 0) {

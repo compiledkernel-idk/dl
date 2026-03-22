@@ -60,8 +60,16 @@
 
 
 
-#define DL_VERSION_W                L"dl 0.1.0"
-#define DL_VERSION_A                "dl 0.1.0"
+#ifndef DL_VERSION_TEXT_A
+#define DL_VERSION_TEXT_A           "0.1.0"
+#endif
+
+#ifndef DL_VERSION_TEXT_W
+#define DL_VERSION_TEXT_W           L"0.1.0"
+#endif
+
+#define DL_VERSION_A                "dl " DL_VERSION_TEXT_A
+#define DL_VERSION_W                L"dl " DL_VERSION_TEXT_W
 
 #ifndef DL_UPDATE_MANIFEST_URL_A
 #define DL_UPDATE_MANIFEST_URL_A    "https://github.com/compiledkernel-idk/dl/releases/latest/download/dl-update.txt"
